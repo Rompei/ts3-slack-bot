@@ -19,7 +19,7 @@ Usage of ./ts3-slack-bot:
     WebHookURL
 ```
 
-0. Get the source code and build it.
+1. Get the source code and build it.
 
 ```bash
 go get github.com/Rompei/ts3-slack-bot
@@ -27,15 +27,15 @@ cd $GOPATH/src/github.com/Rompei/ts3-slack-bot
 go build
 ```
 
-1. Set the software with cron. In this example, it runs every five minutes.
+2. Set the software with cron. In this example, it runs every five minutes.
 
 ```bash
 */5 * * * * ts3-slack-bot [OPTIONS]
 ```
 
-2. First time, it gets client information from team speak server with server query and stores it.
+3. First time, it gets client information from team speak server with server query and stores it.
 
-3. Next time, it gets client information and compares with old one, then posts client statuses to Slack. In this example, it will post 5 minutes later of first step.
+4. Next time, it gets client information and compares with old one, then posts client statuses to Slack. In this example, it will post 5 minutes later of first step.
 
 # Features
 - If people enter the server, it will notify it within from 5 to 10 minutes
