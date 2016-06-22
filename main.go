@@ -228,6 +228,12 @@ func buildText(info map[string][]string, login bool) string {
 				w.WriteString(", ")
 			}
 		}
+
+		if len(v) == 1 {
+			w.WriteString(" has")
+		} else {
+			w.WriteString(" have")
+		}
 		if login {
 			w.WriteString(" connected to ")
 		} else {
