@@ -225,19 +225,18 @@ func buildText(info map[string][]string, login bool) string {
 		for i := range v {
 			w.WriteString(v[i])
 			if i != len(v)-1 {
-				w.WriteString(", ")
+				if i == len(v)-2 {
+					w.WriteString(" and ")
+				} else {
+					w.WriteString(", ")
+				}
 			}
 		}
 
-		if len(v) == 1 {
-			w.WriteString(" has")
-		} else {
-			w.WriteString(" have")
-		}
 		if login {
 			w.WriteString(" connected to ")
 		} else {
-			w.WriteString(" left ")
+			w.WriteString(" disconnected from ")
 		}
 		w.WriteString(k)
 		w.WriteString("\n")
