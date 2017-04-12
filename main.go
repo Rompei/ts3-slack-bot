@@ -3,14 +3,15 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/toqueteos/ts3"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
+
+	"github.com/darfk/ts3"
 )
 
 // Client is object of client.
@@ -39,12 +40,39 @@ func NewClient(cliID, cID int, name string) *Client {
 	}
 }
 
+// NewClientFromMap create Client from map.
+func NewClientFromMap(m map[string]string) (*Client, error) {
+	cliID, ok := m["clid"]
+	if !ok {
+		return nil, errors.New("information not enough")
+	}
+	cliIDInt, err := strconv.Atoi(cliID)
+	if err != nil {
+		return nil, err
+	}
+	cid, ok := m["cid"]
+	if !ok {
+		return nil, errors.New("information not enough")
+	}
+
+	cidInt, err := strconv.Atoi(cid)
+	if err != nil {
+		return nil, err
+	}
+	name, ok := m["client_nickname"]
+	if !ok {
+		return nil, errors.New("information not enough")
+	}
+
+	return NewClient(cliIDInt, cidInt, name), nil
+}
+
 func main() {
 
 	var (
 		username   string
 		password   string
-		serverID   string
+		serverID   int
 		webhookURL string
 		output     string
 		debug      bool
@@ -52,36 +80,34 @@ func main() {
 
 	flag.StringVar(&username, "u", "", "TS3 server query username")
 	flag.StringVar(&password, "p", "", "TS3 server query password")
-	flag.StringVar(&serverID, "id", "", "Server ID")
+	flag.IntVar(&serverID, "id", 1, "Server ID")
 	flag.StringVar(&webhookURL, "url", "", "WebHookURL")
 	flag.StringVar(&output, "o", "clients.json", "Output file")
 	flag.BoolVar(&debug, "d", false, "Debug")
 	flag.Parse()
 
-	if username == "" || password == "" || serverID == "" || webhookURL == "" {
+	if username == "" || password == "" || webhookURL == "" {
 		panic(fmt.Errorf("Not enough options"))
 	}
 
-	conn, err := ts3.Dial(":10011", true)
+	client, err := ts3.NewClient(":10011")
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
+	defer client.Close()
 
-	// Login to the server.
-	err = initConn(conn, username, password)
+	_, err = client.Exec(ts3.Login(username, password))
 	if err != nil {
 		panic(err)
 	}
 
-	// Select a server.
-	err = connectToServer(conn, serverID)
+	_, err = client.Exec(ts3.Use(serverID))
 	if err != nil {
 		panic(err)
 	}
 
 	// Get client list.
-	newState, err := getClients(conn)
+	newState, err := getClients(client)
 	if err != nil {
 		panic(err)
 	}
@@ -98,11 +124,11 @@ func main() {
 			}
 		}
 		if !find {
-			channelInfo, err := getChannelInfo(conn, newState[i].CID)
+			channelInfo, err := getChannelInfo(client, newState[i].CID)
 			if err != nil {
 				panic(err)
 			}
-			channelName := ts3.Unquote(channelInfo["channel_name"])
+			channelName := ts3.Unescape(channelInfo["channel_name"])
 			channels[newState[i].CID] = channelName
 			newState[i].ChannelName = channelName
 		}
@@ -296,80 +322,46 @@ func findClient(target *Client, clientList []Client) (isExist bool, found *Clien
 	return
 }
 
-func handleError(err *ts3.ErrorMsg) error {
-	if err.Id != 0 {
-		return fmt.Errorf(err.Msg)
-	}
-	return nil
-}
-
-func initConn(conn *ts3.Conn, username, password string) error {
-
-	// Login to team speak server query.
-
-	_, err := conn.Cmd(fmt.Sprintf("login %s %s", username, password))
-	return handleError(&err)
-}
-
-func connectToServer(conn *ts3.Conn, serverID string) error {
-
-	// Connect to the virtual server.
-
-	_, err := conn.Cmd(fmt.Sprintf("use %s", serverID))
-	return handleError(&err)
-}
-
-func getClients(conn *ts3.Conn) (res []Client, err error) {
+func getClients(client *ts3.Client) (res []Client, err error) {
 
 	// Get client information from the virtual server.
 
-	r, errMsg := conn.Cmd("clientlist")
-	if err := handleError(&errMsg); err != nil {
+	r, err := client.Exec(ts3.ClientList())
+	if err != nil {
 		return nil, err
 	}
-	clients := strings.Split(r, "|")
-	for i := range clients {
-		cliParams := mappingParams(clients[i])
-		if cliParams["client_type"] == "0" {
-			clid, err := strconv.Atoi(cliParams["clid"])
+
+	for _, param := range r.Params {
+		fmt.Println(param)
+		if clientType, ok := param["client_type"]; ok && clientType == "0" {
+			cli, err := NewClientFromMap(param)
 			if err != nil {
 				return nil, err
 			}
-			cid, err := strconv.Atoi(cliParams["cid"])
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, *NewClient(clid, cid, ts3.Unquote(cliParams["client_nickname"])))
+			res = append(res, *cli)
 		}
 	}
 	return
 }
 
-func getChannelInfo(conn *ts3.Conn, cid int) (map[string]string, error) {
+func getChannelInfo(client *ts3.Client, cid int) (map[string]string, error) {
 
 	// Getting information of the channel.
 
-	r, errMsg := conn.Cmd(fmt.Sprintf("channelinfo cid=%d", cid))
-	if err := handleError(&errMsg); err != nil {
+	cmd := ts3.Command{
+		Command: "channelinfo",
+		Params: map[string][]string{
+			"cid": []string{strconv.Itoa(cid)},
+		},
+	}
+
+	r, err := client.Exec(cmd)
+	if err != nil {
 		return nil, err
 	}
-	return mappingParams(r), nil
-}
+	fmt.Println(r)
 
-func mappingParams(obj string) (params map[string]string) {
-
-	// Mapping response of team speak server query.
-
-	params = make(map[string]string)
-	info := strings.Fields(obj)
-	for i := range info {
-		pair := strings.Split(info[i], "=")
-		if len(pair) != 2 {
-			continue
-		}
-		params[pair[0]] = pair[1]
-	}
-	return
+	return r.Params[0], nil
 }
 
 func loadClients(fileName string) ([]Client, error) {
