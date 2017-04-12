@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -87,7 +87,7 @@ func main() {
 	flag.Parse()
 
 	if username == "" || password == "" || webhookURL == "" {
-		panic(fmt.Errorf("Not enough options"))
+		panic(errors.New("Not enough options"))
 	}
 
 	client, err := ts3.NewClient(":10011")
@@ -168,7 +168,7 @@ func main() {
 			// Debug
 			channelMap := makeChannelMap(newClients)
 			text := buildText(channelMap, true)
-			fmt.Println(text)
+			log.Println(text)
 		} else {
 			if err := notifyNewClients(webhookURL, newClients); err != nil {
 				panic(err)
@@ -189,7 +189,7 @@ func main() {
 			// Debug
 			channelMap := makeChannelMap(leavedClients)
 			text := buildText(channelMap, false)
-			fmt.Println(text)
+			log.Println(text)
 		} else {
 			// Notify leaved clients.
 			if err := notifyLeavedClients(webhookURL, leavedClients); err != nil {
@@ -332,7 +332,6 @@ func getClients(client *ts3.Client) (res []Client, err error) {
 	}
 
 	for _, param := range r.Params {
-		fmt.Println(param)
 		if clientType, ok := param["client_type"]; ok && clientType == "0" {
 			cli, err := NewClientFromMap(param)
 			if err != nil {
@@ -359,7 +358,6 @@ func getChannelInfo(client *ts3.Client, cid int) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(r)
 
 	return r.Params[0], nil
 }
