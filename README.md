@@ -44,7 +44,7 @@ go build
 
 # Used libraries
 
-[toqueteos/ts3](https://github.com/toqueteos/ts3)
+[Darfk/ts3](https://github.com/Darfk/ts3)
 
 # License
 
