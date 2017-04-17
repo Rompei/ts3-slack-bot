@@ -7,10 +7,10 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/Rompei/inco"
 	"github.com/darfk/ts3"
 )
 
@@ -21,14 +21,6 @@ type Client struct {
 	Name        string `json:"name"`
 	ChannelName string `json:"channelName"`
 	IsNotified  bool   `json:"isNotified"`
-}
-
-// WebHookBody is body of slack webhook.
-type WebHookBody struct {
-	Text      string `json:"text"`
-	Channel   string `json:"channel"`
-	Username  string `json:"username"`
-	IconEmoji string `json:"icon_emoji"`
 }
 
 // NewClient is constructor of Client.
@@ -168,7 +160,7 @@ func main() {
 			// Debug
 			channelMap := makeChannelMap(newClients)
 			text := buildText(channelMap, true)
-			log.Println(text)
+			log.Printf(text)
 		} else {
 			if err := notifyNewClients(webhookURL, newClients); err != nil {
 				panic(err)
@@ -189,7 +181,7 @@ func main() {
 			// Debug
 			channelMap := makeChannelMap(leavedClients)
 			text := buildText(channelMap, false)
-			log.Println(text)
+			log.Printf(text)
 		} else {
 			// Notify leaved clients.
 			if err := notifyLeavedClients(webhookURL, leavedClients); err != nil {
@@ -274,25 +266,11 @@ func postToSlack(url, text string) error {
 
 	// Posting slack incoming webhooks.
 
-	body := WebHookBody{
+	msg := &inco.Message{
 		Text: text,
 	}
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(b)))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+
+	return inco.Incoming(url, msg)
 }
 
 func matchClient(target *Client, clientList []Client) (isExist bool) {
